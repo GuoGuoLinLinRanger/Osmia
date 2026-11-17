@@ -1,0 +1,13 @@
+[Unit]
+Description=Osmia trader 4-cohort Fear & Greed fetch
+After=network.target
+
+[Service]
+Type=oneshot
+User=osmia
+WorkingDirectory=/opt/llm_trader
+Environment="PATH=/opt/llm_trader/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/opt/llm_trader/venv/bin/python3 /opt/llm_trader/TraderV13.py --fetch-fg
+
+[Install]
+WantedBy=multi-user.target

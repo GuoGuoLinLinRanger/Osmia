@@ -1,0 +1,10 @@
+[Unit]
+Description=Osmia trader pair analysis every 10 minutes
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=10min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

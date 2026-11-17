@@ -1,0 +1,10 @@
+[Unit]
+Description=Qwen Trader news scrape every 30 minutes
+
+[Timer]
+OnBootSec=120
+OnUnitActiveSec=30min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

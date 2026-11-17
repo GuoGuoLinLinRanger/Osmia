@@ -1,0 +1,10 @@
+[Unit]
+Description=Qwen Trader unlock calendar daily at 06:00
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Osmia trader per-asset news scraper
+After=network.target
+
+[Service]
+Type=oneshot
+User=osmia
+WorkingDirectory=/opt/llm_trader
+Environment="PATH=/opt/llm_trader/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/opt/llm_trader/venv/bin/python3 /opt/llm_trader/TraderV13.py --scrape-news
+
+[Install]
+WantedBy=multi-user.target

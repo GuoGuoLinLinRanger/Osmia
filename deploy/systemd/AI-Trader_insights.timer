@@ -1,0 +1,10 @@
+[Unit]
+Description=Osmia report insights (learning loop)
+
+[Timer]
+OnBootSec=300
+OnUnitActiveSec=6h
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
