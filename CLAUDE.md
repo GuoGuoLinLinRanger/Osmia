@@ -43,7 +43,9 @@ venv/bin/python3 TraderV08.py --init-db       # (re)create schema + run migratio
 venv/bin/python3 TraderV08.py --size 250      # override notional for this run (combine with --analyze/--fiat)
 ```
 
-There is no test suite (the old `test_ingest.py` is unmaintained under `history/`). `init_db()` runs on every invocation and is idempotent: it `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN` for migrations, so schema changes are made by adding to the `DDL_*` constants / `_add_col_if_missing` lists rather than writing migration scripts.
+Tests live in `tests/` (pytest, in-memory DuckDB, no network): `python -m pytest -q`. The old `history/test_ingest.py` is unmaintained.
+
+**Pair-trade direction:** a candidate `BASE/QUOTE` with z below the threshold means BASE is cheap vs QUOTE, so the trade SELLS QUOTE and BUYS BASE. Verdicts, outcomes and reputation are keyed by that `BASE/QUOTE` signal pair (= `buy_asset/sell_asset` on a trade); P&L is measured against holding the sold leg (`trade_pnl`). `init_db()` runs on every invocation and is idempotent: it `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN` for migrations, so schema changes are made by adding to the `DDL_*` constants / `_add_col_if_missing` lists rather than writing migration scripts.
 
 ## Production deployment (systemd)
 
