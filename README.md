@@ -24,6 +24,8 @@ ingest → market_history → candidate scoring → LLM verdict → fantasy trad
 |------|---------|
 | `osmia/` | The package. `config`, `core`, `store`, `llm`, `notify`, `sources/` (market, news, sentiment), `signals`, `portfolio`, `learning`, `agent`, `scheduler`, `backup`, `cli`. |
 | `tests/` | pytest suite (in-memory DuckDB, no network). |
+| `demo/` | Bundled public price data for the replay demo. |
+| `scripts/` | `make_demo_dataset.py`. |
 | `balances.json` | Starting holdings for the paper ledger (sample values — replace with your own). |
 | `deploy/systemd/` | Nine oneshot service + timer units for a home server. |
 | `history/` | The original single-file versions, V0.2 → `TraderV13.py` (v1.5), kept for reference. |
@@ -43,6 +45,7 @@ python -m osmia --backfill              # one-shot 90-day 1m OHLCV backfill
 python -m osmia --outcomes              # score past verdicts vs actual moves
 python -m osmia --report --write-insights   # LLM report + feedback insights
 python -m osmia --portfolio | --status | --daily-pnl | --backup
+python -m osmia --research              # one autonomous research cycle
 python -m osmia --run                   # every job on its schedule, in one process
 python -m pytest -q                     # tests
 ```
@@ -60,6 +63,30 @@ Copy `.env.example` to `.env` (in `OSMIA_HOME`, which defaults to the repo folde
 - `CMC_API_KEY` — optional CoinMarketCap key for its Fear & Greed feed.
 
 Trading constants (`ASSETS`, `BINANCE_DIRECT_PAIRS`, z-score/confidence thresholds, cooldowns, sizing) live in `osmia/config.py`.
+
+## Research loop (autonomous)
+
+`python -m osmia --research` runs one research cycle (the scheduler runs one a day):
+
+1. Split the stored price history in time: **train** | **holdout** (most recent 30%).
+2. Measure the default strategy and baselines on train only.
+3. The LLM reads that training evidence and proposes new, falsifiable hypotheses (e.g. *"pairs quoted in BTC/ETH revert better than alt-vs-alt"*). Each becomes a bounded `StrategySpec`. With no LLM reachable, a heuristic proposer explores the same space and is labelled as such.
+4. Every hypothesis is **pre-registered** (spec frozen, timestamped) before testing.
+5. Each is replayed on the holdout — no lookahead, net of fees — against a **matched random baseline** (same timing, filters and exits, random pair, five seeds). The live system's own logged LLM picks are replayed too, as an ablation.
+6. Fixed verdict rule: **accepted** only if the 95% confidence interval of (strategy − random) is above zero, with ≥ 20 trades over ≥ 3 days. Intervals come from a **day-block bootstrap**, because trades on the same day are not independent. Previously accepted hypotheses are re-tested and **retired** if they stop holding.
+7. The LLM writes a journal entry from the final numbers.
+
+The proposer never sees holdout outcomes that overlap its own holdout, and it never re-tests a spec it has already tried.
+
+### Try it on bundled data (no keys, no LLM needed)
+
+```bash
+python -m osmia --demo-load demo/prices_5m.csv.gz   # 21 days of public 5-min closes, 14 assets
+python -m osmia --research --no-llm                  # heuristic proposer
+python -m osmia --research                           # LLM proposer, if one is configured
+```
+
+Regenerate the dataset with `python scripts/make_demo_dataset.py --days 21`.
 
 ## Production deployment
 

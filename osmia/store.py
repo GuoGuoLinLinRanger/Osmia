@@ -229,6 +229,65 @@ CREATE TABLE IF NOT EXISTS fg_history (
 );
 """
 
+# ── v1.6: research layer ─────────────────────────────────────────────────────
+DDL_RESEARCH_RUNS = """
+CREATE TABLE IF NOT EXISTS research_runs (
+    run_id         VARCHAR PRIMARY KEY,
+    started_at     TIMESTAMPTZ NOT NULL,
+    finished_at    TIMESTAMPTZ,
+    data_start     TIMESTAMPTZ,
+    holdout_start  TIMESTAMPTZ,
+    data_end       TIMESTAMPTZ,
+    n_assets       INTEGER,
+    proposer       VARCHAR,
+    summary        VARCHAR          -- JSON
+);
+"""
+DDL_HYPOTHESES = """
+CREATE TABLE IF NOT EXISTS hypotheses (
+    hypothesis_id  VARCHAR PRIMARY KEY,
+    run_id         VARCHAR,
+    created_at     TIMESTAMPTZ NOT NULL,
+    author         VARCHAR,         -- llm | heuristic | baseline
+    statement      VARCHAR,
+    rationale      VARCHAR,
+    spec           VARCHAR,         -- JSON StrategySpec, fixed before testing
+    min_trades     INTEGER,
+    status         VARCHAR,         -- registered | accepted | rejected | inconclusive | retired
+    decided_at     TIMESTAMPTZ,
+    result         VARCHAR          -- JSON
+);
+"""
+DDL_STRATEGY_RESULTS = """
+CREATE TABLE IF NOT EXISTS strategy_results (
+    run_id         VARCHAR NOT NULL,
+    hypothesis_id  VARCHAR NOT NULL,
+    segment        VARCHAR NOT NULL, -- train | holdout
+    n              INTEGER,
+    days           INTEGER,
+    mean_pct       DOUBLE,
+    ci_low         DOUBLE,
+    ci_high        DOUBLE,
+    win_rate       DOUBLE,
+    total_pct      DOUBLE,
+    diff_vs_random DOUBLE,
+    diff_ci_low    DOUBLE,
+    diff_ci_high   DOUBLE,
+    equity         VARCHAR,          -- JSON [{ts, cum_pct}]
+    PRIMARY KEY (run_id, hypothesis_id, segment)
+);
+"""
+DDL_RESEARCH_JOURNAL = """
+CREATE TABLE IF NOT EXISTS research_journal (
+    entry_id       VARCHAR PRIMARY KEY,
+    created_at     TIMESTAMPTZ NOT NULL,
+    run_id         VARCHAR,
+    author         VARCHAR,          -- llm | heuristic
+    title          VARCHAR,
+    body_md        VARCHAR
+);
+"""
+
 def get_conn(max_retries: int = 10, base_delay: float = 2.0) -> duckdb.DuckDBPyConnection:
     """
     Connect to DuckDB with retry-on-lock. DuckDB is single-writer; if another
@@ -301,6 +360,10 @@ def init_db(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(DDL_MINE_INJECTIONS)     # v1.4
     con.execute(DDL_REPORT_INSIGHTS_SEQ) # v1.4
     con.execute(DDL_REPORT_INSIGHTS)     # v1.4
+    con.execute(DDL_RESEARCH_RUNS)       # v1.6
+    con.execute(DDL_HYPOTHESES)          # v1.6
+    con.execute(DDL_STRATEGY_RESULTS)    # v1.6
+    con.execute(DDL_RESEARCH_JOURNAL)    # v1.6
     # v1.1 migration: recreate fg_history if it exists but id has no DEFAULT
     # (happens when table was created before the sequence was added)
     try:

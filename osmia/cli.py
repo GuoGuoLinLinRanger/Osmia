@@ -54,6 +54,10 @@ def main(argv: list[str] | None = None) -> None:
                      help='Run every job on its schedule in this one process (Ctrl-C to stop)')
     grp.add_argument('--backup',         action='store_true',
                      help='Checkpoint and copy the DuckDB file to OSMIA_HOME/backups')
+    grp.add_argument('--research',       action='store_true',
+                     help='Run one research cycle: propose, pre-register and test hypotheses')
+    grp.add_argument('--demo-load',      type=str, default=None, metavar='CSV',
+                     help='Import a price CSV(.gz) (e.g. demo/prices_5m.csv.gz) into market_history')
     parser.add_argument('--full',           action='store_true',
                         help='Show full trade history with --portfolio (default: last 7 days)')
     parser.add_argument('--all-pairs',     action='store_true',
@@ -79,6 +83,14 @@ def main(argv: list[str] | None = None) -> None:
                         help='Limit outcomes window (YYYY-MM-DD, use with --report)')
     parser.add_argument('--write-insights', action='store_true',
                         help='Store LLM pair insights to report_insights table (use with --report)')
+    parser.add_argument('--hypotheses',   type=int,   default=3,
+                        help='Hypotheses per research cycle (use with --research)')
+    parser.add_argument('--holdout-frac', type=float, default=0.3,
+                        help='Most recent fraction of data held out for verdicts (--research)')
+    parser.add_argument('--research-days', type=float, default=None,
+                        help='Only use the last N days of data (--research)')
+    parser.add_argument('--no-llm',       action='store_true',
+                        help='Research with the heuristic proposer only')
     args = parser.parse_args(argv)
 
     if args.run:
@@ -88,6 +100,16 @@ def main(argv: list[str] | None = None) -> None:
     if args.backup:
         from .backup import run_backup
         run_backup()
+        return
+    if args.research:
+        from .research.loop import run_research_cycle
+        con = get_conn()
+        init_db(con)
+        con.close()
+        run_research_cycle(n_hypotheses=max(1, min(args.hypotheses, 8)),
+                           holdout_frac=min(max(args.holdout_frac, 0.1), 0.6),
+                           use_llm=False if args.no_llm else None,
+                           days=args.research_days)
         return
 
     min_pos    = args.min_position if args.min_position is not None else MIN_POSITION_USD
@@ -108,6 +130,10 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if   args.init_db:      print("DB schema initialized.")
+    elif args.demo_load:
+        from .research.data import import_price_csv
+        n = import_price_csv(con, args.demo_load)
+        print(f"  Imported {n} price rows from {args.demo_load}.")
     elif args.status:       status(con)
     elif args.backfill:     backfill(con)
     elif args.outcomes:     score_outcomes(con, all_pairs=args.all_pairs)

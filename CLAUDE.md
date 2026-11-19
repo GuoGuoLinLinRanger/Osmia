@@ -44,6 +44,15 @@ Dependencies only point down this list (no cycles):
 | `learning.py` | outcome scoring, report + insight feedback loop, status |
 | `agent.py` | `analyze_pairs` / `analyze_fiat` and open-position LLM review |
 | `scheduler.py` | `--run` loop; `backup.py` DB backups; `cli.py` argparse entry |
+| `research/` | `data` (price matrix, CSV import), `replay` (StrategySpec + no-lookahead backtest), `stats` (day-block bootstrap, fixed verdict rule), `hypotheses` (LLM/heuristic proposals), `journal`, `loop` (`--research`) |
+
+## Research layer rules
+
+- A hypothesis is a `StrategySpec`; anything from the LLM goes through `sanitize_spec` (bounded params) before it is tested.
+- Hypotheses are written to `hypotheses` with status `registered` **before** any replay; the verdict rule (`stats.verdict`) is fixed: accepted only if the holdout 95% CI of (strategy − matched random baseline) is above 0 with ≥ 20 trades over ≥ 3 days.
+- The proposer sees training-period numbers only, plus outcomes of past hypotheses whose data ended before the current holdout (`_tested_context`). Never pass holdout results into a proposal prompt.
+- Replay must only use bars ≤ t at step t (`test_replay_has_no_lookahead`). Returns are net of round-trip fees.
+- `OSMIA_LLM_CACHE=readwrite` records LLM answers; `readonly` serves them only (the public demo).
 
 ## Rules that are easy to break
 

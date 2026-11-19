@@ -25,3 +25,6 @@ venv/
 *.bak
 *.bak.*
 .DS_Store
+
+# LLM response cache (a curated demo cache lives in demo/)
+llm_cache.sqlite

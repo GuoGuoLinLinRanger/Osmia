@@ -11,8 +11,12 @@ Two providers, picked with OSMIA_LLM_PROVIDER:
 Every caller goes through chat(); failures raise LLMError and each public helper
 turns that into its safe fallback (verdict -> 'pass', insights -> [], ...).
 """
+import hashlib
 import importlib.util
+import sqlite3
 import sys
+from contextlib import closing
+from datetime import datetime, timezone
 
 import requests
 
@@ -70,16 +74,64 @@ def _chat_anthropic(prompt: str, timeout: int) -> str:
     return "".join(b.text for b in resp.content if b.type == "text")
 
 
+def _cache_key(prompt: str) -> str:
+    return hashlib.sha256(
+        f"{config.LLM_PROVIDER}\n{config.LLM_MODEL}\n{prompt}".encode('utf-8')).hexdigest()
+
+
+def _cache_db() -> sqlite3.Connection:
+    db = sqlite3.connect(config.LLM_CACHE_PATH)
+    db.execute("""CREATE TABLE IF NOT EXISTS llm_cache (
+        key TEXT PRIMARY KEY, provider TEXT, model TEXT, prompt TEXT,
+        response TEXT, created_at TEXT)""")
+    return db
+
+
+def cache_get(prompt: str) -> str | None:
+    if config.LLM_CACHE not in ('readwrite', 'readonly'):
+        return None
+    try:
+        with closing(_cache_db()) as db:
+            row = db.execute("SELECT response FROM llm_cache WHERE key = ?",
+                             (_cache_key(prompt),)).fetchone()
+        return row[0] if row else None
+    except sqlite3.Error:
+        return None
+
+
+def cache_put(prompt: str, response: str) -> None:
+    if config.LLM_CACHE != 'readwrite':
+        return
+    try:
+        with closing(_cache_db()) as db, db:
+            db.execute("INSERT OR REPLACE INTO llm_cache VALUES (?,?,?,?,?,?)",
+                       (_cache_key(prompt), config.LLM_PROVIDER, config.LLM_MODEL, prompt,
+                        response, datetime.now(timezone.utc).isoformat()))
+    except sqlite3.Error as e:
+        print(f"  [llm-cache] write failed: {e}", file=sys.stderr)
+
+
 def chat(prompt: str, max_tokens: int = 512, temperature: float = 0.2,
          timeout: int = 90) -> str:
-    """Send one user prompt, return the reply text. Raises LLMError."""
+    """Send one user prompt, return the reply text. Raises LLMError.
+    With OSMIA_LLM_CACHE set, answers are reused/recorded (see config)."""
+    cached = cache_get(prompt)
+    if cached is not None:
+        return cached
+    if config.LLM_CACHE == 'readonly':
+        raise LLMError("no cached answer for this prompt (OSMIA_LLM_CACHE=readonly)")
     if config.LLM_PROVIDER == 'anthropic':
-        return _chat_anthropic(prompt, timeout)
-    return _chat_openai(prompt, max_tokens, temperature, timeout)
+        reply = _chat_anthropic(prompt, timeout)
+    else:
+        reply = _chat_openai(prompt, max_tokens, temperature, timeout)
+    cache_put(prompt, reply)
+    return reply
 
 
 def ping_llm() -> bool:
     """Cheap reachability check; never sends a billed completion."""
+    if config.LLM_CACHE == 'readonly':
+        return True          # answers come from the cache; misses degrade per call
     if config.LLM_PROVIDER == 'anthropic':
         return importlib.util.find_spec('anthropic') is not None
     base = config.LLM_URL.rsplit('/chat/completions', 1)[0]

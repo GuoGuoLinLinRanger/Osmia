@@ -29,6 +29,13 @@ LLM_API_KEY      = os.getenv('OSMIA_LLM_API_KEY', "")
 LLM_MODEL        = os.getenv('OSMIA_LLM_MODEL') or (
     'claude-opus-5-5' if LLM_PROVIDER == 'anthropic' else 'qwen-instruct')
 
+# LLM response cache (sqlite, keyed by provider+model+prompt):
+#   off        live calls only (default)
+#   readwrite  reuse cached answers, record new ones (record a demo run)
+#   readonly   cached answers only; a miss counts as "LLM unavailable" (public demo)
+LLM_CACHE        = os.getenv('OSMIA_LLM_CACHE', 'off').strip().lower()
+LLM_CACHE_PATH   = os.getenv('OSMIA_LLM_CACHE_PATH', str(OSMIA_HOME / 'llm_cache.sqlite'))
+
 # Exchange for market data (any ccxt id). Binance blocks US and most cloud IPs
 # (HTTP 451); use e.g. 'binanceus', 'kraken' or 'coinbase' there.
 EXCHANGE_ID      = os.getenv('OSMIA_EXCHANGE', 'binance').strip().lower()

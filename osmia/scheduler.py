@@ -19,6 +19,7 @@ JOBS = [
     ('outcomes', ['--outcomes'],                3600,  300),
     ('insights', ['--report', '--write-insights'], 6 * 3600, 900),
     ('unlocks',  ['--scrape-unlocks'],         24 * 3600, 120),
+    ('research', ['--research'],               24 * 3600, 3600),
 ]
 BACKUP_HOURS_UTC = (6, 18)
 
