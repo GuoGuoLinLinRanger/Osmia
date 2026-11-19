@@ -1,7 +1,8 @@
 # Osmia trader — systemd units
 
-All units run as a dedicated `osmia` user from `/opt/llm_trader` using `venv/bin/python3`.
-Production currently runs **TraderV13.py**.
+All units run as a dedicated `osmia` user from the repo checkout at `/opt/llm_trader`,
+with `OSMIA_HOME=/opt/llm_trader`, as `venv/bin/python3 -m osmia --<job>`.
+Install or update them all with `sudo bash deploy/install_systemd.sh`.
 
 ## Unit summary
 
@@ -13,7 +14,7 @@ Production currently runs **TraderV13.py**.
 | `AI-Trader_fiat`       | `--fiat`                 | every 10 min     |
 | `AI-Trader_news`       | `--scrape-news`          | every 30 min     |
 | `AI-Trader_unlocks`    | `--scrape-unlocks`       | daily 06:00      |
-| `AI-Trader_backup`     | `backup_db.py`           | daily 06:00 + 18:00 |
+| `AI-Trader_backup`     | `--backup`               | daily 06:00 + 18:00 |
 | `AI-Trader_outcomes`   | `--outcomes`             | hourly           |
 | `AI-Trader_insights`   | `--report --write-insights` | every 6 h     |
 
@@ -35,37 +36,35 @@ sudo systemctl enable --now \
   AI-Trader_fiat.timer \
   AI-Trader_news.timer \
   AI-Trader_unlocks.timer \
-  AI-Trader_backup.timer \n  AI-Trader_outcomes.timer \n  AI-Trader_insights.timer
+  AI-Trader_backup.timer \
+  AI-Trader_outcomes.timer \
+  AI-Trader_insights.timer
 ```
 
-## Bumping to a new script version
+## Updating to new code
 
-The units hardcode the script filename. Bumping the file alone changes nothing
-in production. To repoint all units at once:
+The units run the `osmia` package from the checkout, so an update is a pull plus
+a restart; no unit edits are needed:
 
 ```bash
-NEW=TraderV12.py
-OLD=TraderV11.py
-sudo sed -i "s#$OLD#$NEW#" /etc/systemd/system/AI-Trader_*.service
-sudo systemctl daemon-reload
-sudo systemctl restart AI-Trader_ingest AI-Trader_pairs AI-Trader_fiat \
-  AI-Trader_news AI-Trader_unlocks AI-Trader_fg
-# also update this README and the deploy script
+cd /opt/llm_trader
+sudo -u osmia git pull
+sudo -u osmia venv/bin/pip install -e .     # only if dependencies changed
+sudo systemctl daemon-reload                # only if unit files changed (re-run install_systemd.sh)
 ```
 
-Then update `ExecStart` in the source files under `deploy/systemd/` to keep
-this directory in sync with production.
+Timers pick up the new code on their next tick.
 
 ## Rollback
 
 ```bash
-OLD=TraderV10.py
-NEW=TraderV11.py
-sudo sed -i "s#$NEW#$OLD#" /etc/systemd/system/AI-Trader_*.service
-sudo systemctl daemon-reload
-sudo systemctl restart AI-Trader_ingest AI-Trader_pairs AI-Trader_fiat \
-  AI-Trader_news AI-Trader_unlocks AI-Trader_fg
+cd /opt/llm_trader
+sudo -u osmia git log --oneline -5          # pick the last good commit
+sudo -u osmia git checkout <commit>
 ```
+
+To return to the pre-package v1.4 script, check out `history/TraderV13.py`'s
+parent commit and re-run its own deploy script.
 
 ## Notes / known limits
 

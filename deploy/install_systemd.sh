@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Full install/repoint of all AI-Trader units.
-# Run with sudo:  ! sudo bash /opt/llm_trader/deploy/deploy_v08.sh
+# Install or update all Osmia systemd units (home-server deployment).
+# Run with sudo from the repo checkout:  sudo bash /opt/llm_trader/deploy/install_systemd.sh
 #
-# Copies all unit files from deploy/systemd/, repoints existing units to the
-# current script version, enables any new timers, and fires a first --analyze run.
+# Copies every unit from deploy/systemd/, enables all timers, and fires a first
+# --analyze run. Container/cloud hosts should use `python -m osmia --run` instead.
 set -euo pipefail
 
-SCRIPT=TraderV13.py
-SRC=/opt/llm_trader/deploy/systemd
+HOME_DIR=/opt/llm_trader
+PY=$HOME_DIR/venv/bin/python3
+SRC=$HOME_DIR/deploy/systemd
 UNITS=/etc/systemd/system
-STAMP=$(date +%Y%m%d_%H%M%S)
 
 echo "== 0. sanity =="
-test -f "/opt/llm_trader/$SCRIPT" || { echo "$SCRIPT missing"; exit 1; }
-/opt/llm_trader/venv/bin/python3 -m py_compile "/opt/llm_trader/$SCRIPT" && echo "  $SCRIPT compiles OK"
+cd "$HOME_DIR"
+OSMIA_HOME=$HOME_DIR "$PY" -c "import osmia.cli" && echo "  osmia package imports OK"
 
 echo "== 1. copy all unit files =="
 cp "$SRC"/AI-Trader_*.service "$UNITS"/

@@ -2,6 +2,8 @@
 
 This is the end-to-end recipe for building the system from nothing to a 24/7 production deployment. The phases mirror the order it was actually built in (v0.2 → v1.4), because each layer depends on data produced by the previous one.
 
+> **Historical note:** this guide describes the single-file era (`TraderV*.py`, now in `history/`). Since v1.5 the code is the `osmia/` package, run as `python -m osmia --<job>`; see the README for current commands. File and constant names below refer to that era.
+
 ---
 
 ## Phase 0 — Infrastructure prerequisites
@@ -148,7 +150,7 @@ Iterated three times before it stopped being noise:
 
 ## Phase 13 — Production deployment (systemd)
 
-Seven oneshot service + timer pairs in `deploy/systemd/`, all `ExecStart=/opt/llm_trader/venv/bin/python3 TraderV13.py <flag>`:
+Oneshot service + timer pairs in `deploy/systemd/` (now `ExecStart=/opt/llm_trader/venv/bin/python3 -m osmia <flag>`):
 
 | Unit | Flag | Schedule |
 |---|---|---|
